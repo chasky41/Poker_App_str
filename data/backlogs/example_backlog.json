@@ -1,0 +1,36 @@
+{
+  "backlog": [
+    {
+      "name": "Authentification utilisateur",
+      "description": "Implémenter un système de connexion sécurisé avec email et mot de passe"
+    },
+    {
+      "name": "Dashboard principal",
+      "description": "Créer un tableau de bord avec statistiques et graphiques en temps réel"
+    },
+    {
+      "name": "Gestion des profils",
+      "description": "Permettre aux utilisateurs de modifier leurs informations personnelles et préférences"
+    },
+    {
+      "name": "Système de notifications",
+      "description": "Envoyer des notifications push et email pour les événements importants"
+    },
+    {
+      "name": "Module de recherche avancée",
+      "description": "Implémenter une recherche avec filtres multiples et suggestions intelligentes"
+    },
+    {
+      "name": "Export de données",
+      "description": "Permettre l'export des données en CSV, Excel et PDF"
+    },
+    {
+      "name": "API REST",
+      "description": "Créer une API REST complète avec documentation Swagger"
+    },
+    {
+      "name": "Tests automatisés",
+      "description": "Mettre en place une suite de tests unitaires et d'intégration"
+    }
+  ]
+}
