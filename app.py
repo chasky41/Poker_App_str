@@ -29,6 +29,32 @@ st.set_page_config(
 # Injection du CSS personnalisé
 st.markdown(get_custom_css(), unsafe_allow_html=True)
 
+
+# Sidebar - About / Contributors
+st.sidebar.markdown("## ℹ️ À propos")
+
+with st.sidebar.expander("📌 Projet Planning Poker"):
+    st.markdown("""
+    **Planning Poker** est une application développée dans le cadre du module *Méthodes Agiles*.
+
+    🎯 **Objectif**  
+    Faciliter les séances d’estimation collaborative en équipe agile.
+
+    🧩 **Méthodologie**  
+    - Travail collaboratif  
+    - Estimation collective  
+    - Amélioration continue
+    """)
+
+with st.sidebar.expander("👥 Contributeurs"):
+    st.markdown("""
+    - **Chasky** – Architecture & logique métier  
+    - **Coéquipier 2** – Tests & CI/CD  
+    - **Hamza Meksem** – Section “À propos” + documentation & amélioration UX
+    """)
+
+
+
 # Initialisation du gestionnaire JSON
 json_handler = JSONHandler()
 
