@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """
 Application Planning Poker avec Streamlit - Mode Poker Réaliste
++ Ajout : Chronomètre de vote par feature (limite de temps)
 """
 
 import streamlit as st
@@ -73,8 +74,11 @@ def init_session_state():
         st.session_state.features = []
     if "voting_mode" not in st.session_state:
         st.session_state.voting_mode = "strict"
+
+    # Durée totale (session)
     if "timer_start" not in st.session_state:
         st.session_state.timer_start = None
+
     if "game_mode" not in st.session_state:
         st.session_state.game_mode = "local"
     if "room_id" not in st.session_state:
@@ -86,8 +90,30 @@ def init_session_state():
     if "online_game" not in st.session_state:
         st.session_state.online_game = None
 
+    # ========== TIMER DE VOTE (par feature) ==========
+    if "vote_start_time" not in st.session_state:
+        st.session_state.vote_start_time = None
+    if "vote_time_limit" not in st.session_state:
+        st.session_state.vote_time_limit = 30  # ✅ 30 secondes par feature (modifiable)
+    if "vote_time_over" not in st.session_state:
+        st.session_state.vote_time_over = False
+
 
 init_session_state()
+
+
+# ========== UTILITAIRES TIMER ==========
+def start_vote_timer_if_needed():
+    """Démarre le chronomètre pour la feature courante (si pas déjà démarré)."""
+    if st.session_state.vote_start_time is None:
+        st.session_state.vote_start_time = time.time()
+        st.session_state.vote_time_over = False
+
+
+def reset_vote_timer():
+    """Réinitialise le chronomètre (à appeler quand on relance un vote / passe à une nouvelle feature)."""
+    st.session_state.vote_start_time = None
+    st.session_state.vote_time_over = False
 
 
 # ========== FONCTIONS UTILITAIRES ==========
@@ -127,6 +153,7 @@ def show_progress_bar(current, total, percentage):
         f"""
     <div class="progress-container">
         <div class="progress-bar" style="width: {percentage}%;">
+
             {current}/{total} - {percentage:.0f}%
         </div>
     </div>
@@ -183,6 +210,8 @@ def show_home_page():
             ):
                 st.session_state.page = "setup"
                 st.session_state.game_mode = "local"
+                st.session_state.game = None
+                reset_vote_timer()
                 st.rerun()
 
             if st.button(
@@ -190,6 +219,7 @@ def show_home_page():
             ):
                 st.session_state.page = "load"
                 st.session_state.game_mode = "local"
+                reset_vote_timer()
                 st.rerun()
 
         with tab2:
@@ -204,6 +234,7 @@ def show_home_page():
                 ):
                     st.session_state.page = "online_create"
                     st.session_state.game_mode = "online"
+                    reset_vote_timer()
                     st.rerun()
 
             with col_join:
@@ -214,6 +245,7 @@ def show_home_page():
                 ):
                     st.session_state.page = "online_join"
                     st.session_state.game_mode = "online"
+                    reset_vote_timer()
                     st.rerun()
 
         st.markdown("---")
@@ -300,6 +332,17 @@ def show_setup_page():
 
         st.markdown("---")
 
+        # ✅ OPTION : durée timer (simple et utile)
+        st.markdown("### ⏳ Chronomètre de vote")
+        st.session_state.vote_time_limit = st.number_input(
+            "Temps limite par feature (secondes)",
+            min_value=10,
+            max_value=300,
+            value=int(st.session_state.vote_time_limit),
+        )
+
+        st.markdown("---")
+
         # Backlog
         st.markdown("### 📋 Backlog")
 
@@ -353,6 +396,7 @@ def show_setup_page():
     with col_back:
         if st.button("← Retour", use_container_width=True):
             st.session_state.page = "home"
+            reset_vote_timer()
             st.rerun()
 
     with col_start:
@@ -370,47 +414,26 @@ def show_setup_page():
                 st.session_state.game = Game(players, features, voting_mode)
                 st.session_state.game.start_game()
                 st.session_state.page = "game"
-                st.session_state.timer_start = time.time()
+                st.session_state.timer_start = time.time()  # durée totale
+                reset_vote_timer()  # ✅ reset timer feature
+                st.session_state["current_player"] = 0
                 st.rerun()
 
 
-# Suite dans le prochain artifact...
-
-
-# ========== PAGE GAME (Suite de app.py) ==========
+# ========== PAGE GAME ==========
 def show_game_page():
     """Page de jeu principale"""
     game = st.session_state.game
+
 
     if not game:
         st.error("❌ Aucune partie en cours")
         if st.button("← Retour à l'accueil"):
             st.session_state.page = "home"
+            reset_vote_timer()
             st.rerun()
         return
 
-    # Header avec timer et progression
-    col_timer, col_progress = st.columns([1, 3])
-
-    with col_timer:
-        if st.session_state.timer_start:
-            elapsed = int(time.time() - st.session_state.timer_start)
-            minutes = elapsed // 60
-            seconds = elapsed % 60
-            st.markdown(
-                f"""
-            <div class="timer-display">
-                ⏱️ {minutes:02d}:{seconds:02d}
-            </div>
-            """,
-                unsafe_allow_html=True,
-            )
-
-    with col_progress:
-        progress = game.get_progress()
-        show_progress_bar(
-            progress["completed"], progress["total"], progress["percentage"]
-        )
 
     # Vérifier si la partie est terminée
     if game.game_finished:
@@ -424,6 +447,47 @@ def show_game_page():
         st.error("❌ Aucune feature disponible")
         return
 
+    # ✅ Démarrer le timer de vote pour cette feature si nécessaire
+    start_vote_timer_if_needed()
+
+    # Header avec timer + progression
+    col_timer, col_progress = st.columns([1, 3])
+
+    with col_timer:
+        # ✅ Affichage du compte à rebours du vote
+        if st.session_state.vote_start_time:
+            elapsed = int(time.time() - st.session_state.vote_start_time)
+            remaining = int(st.session_state.vote_time_limit - elapsed)
+
+            if remaining > 0:
+                minutes = remaining // 60
+                seconds = remaining % 60
+                st.markdown(
+                    f"""
+                    <div class="timer-display">
+                        ⏳ Temps restant<br/>
+                        <strong>{minutes:02d}:{seconds:02d}</strong>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+            else:
+                st.session_state.vote_time_over = True
+                st.markdown(
+                    """
+                    <div class="timer-display">
+                        ⛔ Temps écoulé
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
+
+    with col_progress:
+        progress = game.get_progress()
+        show_progress_bar(
+            progress["completed"], progress["total"], progress["percentage"]
+        )
+
     # Afficher la feature
     st.markdown("<div class='main-container'>", unsafe_allow_html=True)
     st.markdown(f"### 🎯 Feature Actuelle : {current_feature.name}")
@@ -434,14 +498,13 @@ def show_game_page():
     st.markdown(f"**Tour de vote : {current_feature.current_round + 1}**")
     st.markdown("</div>", unsafe_allow_html=True)
 
-    # Zone de vote avec table ronde de casino
+    # Zone de vote
     st.markdown("---")
     st.markdown(
         "<h2 style='text-align: center; color: white;'>🎴 Choisissez Votre Carte</h2>",
         unsafe_allow_html=True,
     )
 
-    # Afficher les cartes en grille simple mais stylisée
     cols_per_row = 6
     card_rows = [
         CARD_VALUES[i : i + cols_per_row]
@@ -452,15 +515,19 @@ def show_game_page():
         cols = st.columns(len(row))
         for idx, (col, card_value) in enumerate(zip(cols, row)):
             with col:
-                # Bouton pour chaque carte
                 card_key = f"card_{card_value}"
-                if st.button(str(card_value), key=card_key, use_container_width=True):
-                    # Enregistrer le vote du joueur actuel
+
+                # ✅ Désactiver le vote si le temps est écoulé
+                if st.button(
+                    str(card_value),
+                    key=card_key,
+                    use_container_width=True,
+                    disabled=st.session_state.vote_time_over,
+                ):
                     player_selection = st.session_state.get("current_player", 0)
                     if player_selection < len(game.players):
                         game.players[player_selection].vote(card_value)
 
-                        # Passer au joueur suivant ou valider
                         if player_selection < len(game.players) - 1:
                             st.session_state["current_player"] = player_selection + 1
                         else:
@@ -485,7 +552,7 @@ def show_game_page():
     )
     st.session_state["current_player"] = selected_player
 
-    # Afficher qui a voté
+    # Statut des votes
     st.markdown("### 📊 Statut des votes")
     vote_cols = st.columns(len(game.players))
 
@@ -512,34 +579,45 @@ def show_game_page():
         if st.button("🔄 Réinitialiser les votes"):
             game.reset_player_votes()
             st.session_state["current_player"] = 0
+            reset_vote_timer()  # ✅ on relance un nouveau vote
             st.rerun()
 
     with col2:
-        # Vérifier si tout le monde a voté
         all_voted = all(p.has_voted for p in game.players)
 
+        # ✅ autoriser la validation si all_voted OU temps écoulé
         if st.button(
-            "✅ Révéler et Valider", disabled=not all_voted, use_container_width=True
+            "✅ Révéler et Valider",
+            disabled=not (all_voted or st.session_state.vote_time_over),
+            use_container_width=True,
         ):
             result = game.process_votes()
 
             if result["coffee_break"]:
                 st.warning("☕ Pause café demandée ! La partie est sauvegardée.")
-                # Sauvegarder automatiquement
                 save_path = json_handler.save_game(game.to_dict())
                 st.info(f"💾 Partie sauvegardée : {save_path}")
                 time.sleep(2)
                 game.reset_player_votes()
+                st.session_state["current_player"] = 0
+                reset_vote_timer()  # ✅ nouveau vote après pause
                 st.rerun()
+
             elif result["validated"]:
                 st.success(result["message"])
                 time.sleep(2)
                 game.next_feature()
+                game.reset_player_votes()
+                st.session_state["current_player"] = 0
+                reset_vote_timer()  # ✅ nouvelle feature => nouveau timer
                 st.rerun()
+
             else:
                 st.warning(result["message"])
                 time.sleep(2)
                 game.reset_player_votes()
+                st.session_state["current_player"] = 0
+                reset_vote_timer()  # ✅ nouveau tour => nouveau timer
                 st.rerun()
 
     with col3:
@@ -555,6 +633,7 @@ def show_game_page():
             if st.button("⚠️ Confirmer ?"):
                 st.session_state.page = "home"
                 st.session_state.game = None
+                reset_vote_timer()
                 st.rerun()
 
 
@@ -629,12 +708,14 @@ def show_results_page():
         if st.button("🆕 Nouvelle Partie", use_container_width=True):
             st.session_state.page = "setup"
             st.session_state.game = None
+            reset_vote_timer()
             st.rerun()
 
     with col3:
         if st.button("🏠 Retour Accueil", use_container_width=True):
             st.session_state.page = "home"
             st.session_state.game = None
+            reset_vote_timer()
             st.rerun()
 
 
@@ -662,20 +743,21 @@ def show_load_page():
                 st.session_state.page = "game"
                 st.success("✅ Partie chargée avec succès !")
                 time.sleep(1)
+                reset_vote_timer()
+                st.session_state["current_player"] = 0
                 st.rerun()
             except Exception as e:
                 st.error(f"❌ Erreur : {str(e)}")
 
     if st.button("← Retour"):
         st.session_state.page = "home"
+        reset_vote_timer()
         st.rerun()
 
     st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ========== PAGES EN LIGNE ==========
-
-
 def show_online_create_page():
     """Page de création d'une salle en ligne"""
     st.markdown(
@@ -755,6 +837,7 @@ def show_online_create_page():
         with col_back:
             if st.button("← Retour", use_container_width=True):
                 st.session_state.page = "home"
+                reset_vote_timer()
                 st.rerun()
 
         with col_create:
@@ -836,6 +919,7 @@ def show_online_join_page():
 
         if st.button("← Retour", use_container_width=True):
             st.session_state.page = "home"
+            reset_vote_timer()
             st.rerun()
 
 
