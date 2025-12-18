@@ -48,10 +48,11 @@ with st.sidebar.expander("📌 Projet Planning Poker"):
 
 with st.sidebar.expander("👥 Contributeurs"):
     st.markdown("""
-    - **Chasky** – Architecture & logique métier  
-    - **Coéquipier 2** – Tests & CI/CD  
+    - **Charaf** – Architecture du projet & logique métier principale  
+    - **Mohamed** – Développement du chronomètre de la partie  
     - **Hamza Meksem** – Section “À propos” + documentation & amélioration UX
     """)
+
 
 
 
