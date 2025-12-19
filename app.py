@@ -51,7 +51,7 @@ with st.sidebar.expander("👥 Contributeurs"):
     st.markdown("""
     - **Charaf** – Architecture du projet & logique métier principale  
     - **Mohamed** – Développement du chronomètre de la partie  
-    - **Hamza Meksem** – Section “À propos” + documentation & amélioration UX
+    - **Hamza Meksem** – L'ajout de Section “À propos” + documentation & amélioration UX
     """)
 
 
